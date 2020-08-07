@@ -89,122 +89,189 @@ var svg = d3.select("#bar")
     .attr("transform",
           "translate(" + margin.left + "," + margin.top + ")");
 
-//read data
-d3.csv("https://raw.githubusercontent.com/zonination/perceptions/master/probly.csv", function(data) {
+// Parse the Data
+d3.csv("https://raw.githubusercontent.com/cormundo/Distance-tracker/master/testcsv.csv", function(data) {
 
-  // Get the different categories and count them
-  var categories = ["Almost Certainly", "Very Good Chance", "We Believe", "Likely", "About Even", "Little Chance", "Chances Are Slight", "Almost No Chance" ]
-  var n = categories.length
 
-  // Compute the mean of each group
-  allMeans = []
-  for (i in categories){
-    currentGroup = categories[i]
-    mean = d3.mean(data, function(d) { return +d[currentGroup] })
-    allMeans.push(mean)
-  }
+  //////////
+  // GENERAL //
+  //////////
 
-  // Create a color scale using these means.
-  var myColor = d3.scaleSequential()
-    .domain([0,100])
-    .interpolator(d3.interpolatePuRd);
+  // List of groups = header of the csv files
+  var keys = data.columns.slice(1)
+
+  // color palette
+  var color = d3.scaleOrdinal()
+    .domain(keys)
+    .range(d3.schemeRdGy[10]);
+
+  //stack the data?
+  var stackedData = d3.stack()
+    .keys(keys)
+    (data)
+
+
+
+  //////////
+  // AXIS //
+  //////////
 
   // Add X axis
   var x = d3.scaleLinear()
-    .domain([-10, 120])
-    .range([ 0, 50 ]);
+    .domain(d3.extent(data, function(d) { return d.Week; }))
+    .range([ 0, width ]);
   var xAxis = svg.append("g")
-    .attr("class", "xAxis")
     .attr("transform", "translate(0," + height + ")")
-    .call(d3.axisBottom(x).tickValues([0,25, 50, 75, 100]).tickSize(-height) )
+    .call(d3.axisBottom(x).ticks(5))
 
   // Add X axis label:
   svg.append("text")
       .attr("text-anchor", "end")
       .attr("x", width)
-      .attr("y", height + 40)
-      .text("Probability (%)");
+      .attr("y", height+40 )
+      .text("Week");
 
-  // Create a Y scale for densities
+  // Add Y axis label:
+  svg.append("text")
+      .attr("text-anchor", "end")
+      .attr("x", 0)
+      .attr("y", -20 )
+      .text("Total KM's Contributed Per Week")
+      .attr("text-anchor", "start")
+
+  // Add Y axis
   var y = d3.scaleLinear()
-    .domain([0, 0.25])
-    .range([ height, 0]);
-
-  // Create the Y axis for names
-  var yName = d3.scaleBand()
-    .domain(categories)
-    .range([0, height])
-    .paddingInner(1)
+    .domain([0, 200])
+    .range([ height, 0 ]);
   svg.append("g")
-    .call(d3.axisLeft(yName).tickSize(0))
-    .select(".domain").remove()
+    .call(d3.axisLeft(y).ticks(5))
 
-  // Compute kernel density estimation for each column:
-  var kde = kernelDensityEstimator(kernelEpanechnikov(7), x.ticks(40)) // increase this 40 for more accurate density.
-  var allDensity = []
-  for (i = 0; i < n; i++) {
-      key = categories[i]
-      density = kde( data.map(function(d){  return d[key]; }) )
-      allDensity.push({key: key, density: density})
-  }
 
-  // Add areas
-  var myCurves = svg.selectAll("areas")
-    .data(allDensity)
+
+  //////////
+  // BRUSHING AND CHART //
+  //////////
+
+  // Add a clipPath: everything out of this area won't be drawn.
+  var clip = svg.append("defs").append("svg:clipPath")
+      .attr("id", "clip")
+      .append("svg:rect")
+      .attr("width", width )
+      .attr("height", height )
+      .attr("x", 0)
+      .attr("y", 0);
+
+  // Add brushing
+  var brush = d3.brushX()                 // Add the brush feature using the d3.brush function
+      .extent( [ [0,0], [width,height] ] ) // initialise the brush area: start at 0,0 and finishes at width,height: it means I select the whole graph area
+      .on("end", updateChart) // Each time the brush selection changes, trigger the 'updateChart' function
+
+  // Create the scatter variable: where both the circles and the brush take place
+  var areaChart = svg.append('g')
+    .attr("clip-path", "url(#clip)")
+
+  // Area generator
+  var area = d3.area()
+    .x(function(d) { return x(d.data.Week); })
+    .y0(function(d) { return y(d[0]); })
+    .y1(function(d) { return y(d[1]); })
+
+  // Show the areas
+  areaChart
+    .selectAll("mylayers")
+    .data(stackedData)
     .enter()
     .append("path")
-      .attr("class", "myCurves")
-      .attr("transform", function(d){return("translate(0," + (yName(d.key)-height) +")" )})
-      .attr("fill", function(d){
-        grp = d.key ;
-        index = categories.indexOf(grp)
-        value = allMeans[index]
-        return myColor( value  )
-      })
-      .datum(function(d){return(d.density)})
-      .attr("opacity", 0.7)
-      .attr("stroke", "#000")
-      .attr("stroke-width", 0.1)
-      .attr("d",  d3.line()
-          .curve(d3.curveBasis)
-          .x(function(d) { return x(0); })
-          .y(function(d) { return y(d[1]); })
-      )
+      .attr("class", function(d) { return "myArea " + d.key })
+      .style("fill", function(d) { return color(d.key); })
+      .attr("d", area)
 
-  // Animate X axis apparition
-  x.range([ 0, width ]);
-  xAxis
-    .transition()
-    .duration(5000)
-    .call(d3.axisBottom(x).tickValues([0,25, 50, 75, 100]).tickSize(-height) )
-    .select(".domain").remove()
+  // Add the brushing
+  areaChart
+    .append("g")
+      .attr("class", "brush")
+      .call(brush);
 
-  // Animate densities apparition
-  myCurves
-    .transition()
-    .duration(5000)
-    .attr("d",  d3.line()
-        .curve(d3.curveBasis)
-        .x(function(d) { return x(d[0]); })
-        .y(function(d) { return y(d[1]); })
-    )
+  var idleTimeout
+  function idled() { idleTimeout = null; }
+
+  // A function that update the chart for given boundaries
+  function updateChart() {
+
+    extent = d3.event.selection
+
+    // If no selection, back to initial coordinate. Otherwise, update X axis domain
+    if(!extent){
+      if (!idleTimeout) return idleTimeout = setTimeout(idled, 350); // This allows to wait a little bit
+      x.domain(d3.extent(data, function(d) { return d.year; }))
+    }else{
+      x.domain([ x.invert(extent[0]), x.invert(extent[1]) ])
+      areaChart.select(".brush").call(brush.move, null) // This remove the grey brush area as soon as the selection has been done
+    }
+
+    // Update axis and area position
+    xAxis.transition().duration(1000).call(d3.axisBottom(x).ticks(5))
+    areaChart
+      .selectAll("path")
+      .transition().duration(1000)
+      .attr("d", area)
+    }
+
+
+
+    //////////
+    // HIGHLIGHT GROUP //
+    //////////
+
+    // What to do when one group is hovered
+    var highlight = function(d){
+      console.log(d)
+      // reduce opacity of all groups
+      d3.selectAll(".myArea").style("opacity", .1)
+      // expect the one that is hovered
+      d3.select("."+d).style("opacity", 1)
+    }
+
+    // And when it is not hovered anymore
+    var noHighlight = function(d){
+      d3.selectAll(".myArea").style("opacity", 1)
+    }
+
+
+
+    //////////
+    // LEGEND //
+    //////////
+
+    // Add one dot in the legend for each name.
+    var size = 20
+    svg.selectAll("myrect")
+      .data(keys)
+      .enter()
+      .append("rect")
+        .attr("x", currentWidth - 300)
+        .attr("y", function(d,i){ return 10 + i*(size+5)}) // 100 is where the first dot appears. 25 is the distance between dots
+        .attr("width", size)
+        .attr("height", size)
+        .style("fill", function(d){ return color(d)})
+        .on("mouseover", highlight)
+        .on("mouseleave", noHighlight)
+
+    // Add one dot in the legend for each name.
+    svg.selectAll("mylabels")
+      .data(keys)
+      .enter()
+      .append("text")
+        .attr("x", currentWidth - 300 + size*1.2)
+        .attr("y", function(d,i){ return 10 + i*(size+5) + (size/2)}) // 100 is where the first dot appears. 25 is the distance between dots
+        .style("color", "black")
+        .text(function(d){ return d})
+        .attr("text-anchor", "left")
+        .style("alignment-baseline", "middle")
+        .on("mouseover", highlight)
+        .on("mouseleave", noHighlight)
 
 })
-
-// This is what I need to compute kernel density estimation
-function kernelDensityEstimator(kernel, X) {
-  return function(V) {
-    return X.map(function(x) {
-      return [x, d3.mean(V, function(v) { return kernel(x - v); })];
-    });
-  };
-}
-function kernelEpanechnikov(k) {
-  return function(v) {
-    return Math.abs(v /= k) <= 1 ? 0.75 * (1 - v * v) / k : 0;
-  };
-}
-
 // test area 2
 
 
