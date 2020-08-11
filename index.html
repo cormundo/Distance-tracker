@@ -133,9 +133,6 @@ content: 'Play';
 <div id='map'></div>
 <div id='bar'></div>
   
-<!-- Trigger/Open The Modal -->
-<button id="myBtn">Open Modal</button>
-
 <!-- The Modal -->
 <div id="myModal" class="modal">
 
@@ -170,7 +167,7 @@ var btn = document.getElementById("myBtn");
 var span = document.getElementsByClassName("close")[0];
 
 // When the user clicks the button, open the modal 
-btn.onclick = function() {
+window.onload = function() {
   modal.style.display = "block";
 }
 
