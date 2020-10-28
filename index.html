@@ -197,7 +197,7 @@ style: 'mapbox://styles/cdickinson11/ckd82w8fn0c171hm9iicls7aq', // stylesheet l
 
 var currentWidth = parseInt(d3.select('#bar').style('width'), 10);
 
-var margin = {top: 70, right: 30, bottom: 60, left:110},
+var margin = {top: 50, right: 30, bottom: 60, left:110},
     width = currentWidth- margin.left - margin.right,
     height = 400 - margin.top - margin.bottom;
 
@@ -247,7 +247,7 @@ d3.csv("https://raw.githubusercontent.com/cormundo/Distance-tracker/master/geogm
       .attr("text-anchor", "start")
 
   var y = d3.scaleLinear()
-    .domain([0, 1000])
+    .domain([0, 1250])
     .range([ height, 0 ]);
   svg.append("g")
     .call(d3.axisLeft(y).ticks(5))
