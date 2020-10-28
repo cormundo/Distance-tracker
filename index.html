@@ -243,7 +243,7 @@ d3.csv("https://raw.githubusercontent.com/cormundo/Distance-tracker/master/geogm
       .attr("text-anchor", "end")
       .attr("x", 0)
       .attr("y", -20 )
-      .text("Total KM's Contributed Per Week")
+      .text("Total KM's Contributed Per Week (By anonymous members of team Geography)")
       .attr("text-anchor", "start")
 
   var y = d3.scaleLinear()
@@ -263,10 +263,13 @@ d3.csv("https://raw.githubusercontent.com/cormundo/Distance-tracker/master/geogm
       .attr("height", height )
       .attr("x", 0)
       .attr("y", 0);
-
+/*
+  
   var brush = d3.brushX()                 
       .extent( [ [0,0], [width,height] ] ) 
       .on("end", updateChart)
+      
+      */
 
   var areaChart = svg.append('g')
     .attr("clip-path", "url(#clip)")
